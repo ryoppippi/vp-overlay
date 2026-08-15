@@ -4,6 +4,7 @@
   autoPatchelfHook,
   bun2nix,
   fetchurl,
+  installShellFiles,
   makeWrapper,
   nodejs,
 }:
@@ -29,6 +30,7 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [
     bun2nix.hook
+    installShellFiles
     makeWrapper
   ]
   ++ lib.optionals stdenv.hostPlatform.isLinux [
@@ -110,10 +112,19 @@ stdenv.mkDerivation {
 
   installCheckPhase = ''
     runHook preInstallCheck
+
+    # vp only becomes runnable after autoPatchelfHook patches it in fixupPhase, so
+    # completions are generated here, the first phase that runs after fixup.
+    installShellCompletion --cmd vp \
+      --bash <(VP_COMPLETE=bash $out/bin/vp) \
+      --fish <(VP_COMPLETE=fish $out/bin/vp) \
+      --zsh <(VP_COMPLETE=zsh $out/bin/vp)
+
     tmpcheck=$(mktemp -d)
     echo "${nodejs.version}" > "$tmpcheck/.node-version"
     output=$(cd "$tmpcheck" && $out/bin/vp --version 2>&1)
     echo "$output" | grep -q "vp v${version}"
+
     runHook postInstallCheck
   '';
 
